@@ -22,3 +22,6 @@ These steps should be done by your system administrator
 1. Specify the frame range first. Default values are ```$FSTART``` and ```$FEND```
 2. Specify the Output Driver (e.g. ```/out/mantra1```)
 3. Specify the job priority
+
+#### Known limitations
+- At the moment, it is not possible to use HTOT if your scene uses ```$HIPNAME``` (e.g. in filecache nodes). You have to manually replace them with your scene name.
