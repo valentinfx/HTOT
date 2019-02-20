@@ -17,7 +17,7 @@ jobPriority = sys.argv[5]
 # Check and create directories
 htotPath = os.path.split(sceneFile)[0]+'/htot'
 renderPath = os.path.split(sceneFile)[0]+'/render'
-ifdsPath = os.path.split(sceneFile)[0]+'/ifds'
+ifdsPath = os.path.split(sceneFile)[0]+'/ifds/'+os.path.split(renderNode)[1]
 
 checkPaths = [htotPath,renderPath,ifdsPath]
 for i in checkPaths:
@@ -40,7 +40,7 @@ hou.hipFile.load(sceneFile,suppress_save_prompt=True)
 
 # Set Output Driver to render IFD files
 hou.parm("%s/soho_outputmode"%renderNode).set(1)
-hou.parm('%s/soho_diskfile'%renderNode).set('$HIP/ifds/$OS.$F.ifd')
+hou.parm('%s/soho_diskfile'%renderNode).set('$HIP/ifds/$OS/$OS.$F.ifd')
 # Get 'Output Picture' parameter string
 vm_pictureStr = hou.parm('%s/vm_picture'%renderNode).unexpandedString()
 # Replace $HIPNAME by the original scene name
