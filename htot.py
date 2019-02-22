@@ -84,7 +84,7 @@ f.write('			Task {Render frames %s to %s} -serialsubtasks 0 -subtasks {\n'%( sta
 # Write one task for each frame to render with Mantra
 for i in range(int(startFrame), int(endFrame)+1):
 	f.write('				Task {Render frame %d} -cmds {\n'%i )
-	f.write('					RemoteCmd { "mantra.exe" -V 5 -f "%s/%s.%s.ifd" } -service { PixarRender }\n'%(ifdsPath,renderNodeSimplified,i))
+	f.write('					RemoteCmd { "mantra.exe" -f "%s/%s.%s.ifd" } -service { PixarRender }\n'%(ifdsPath,renderNodeSimplified,i))
 	f.write('				}\n')
 # Close last braces
 f.write('			}\n')
