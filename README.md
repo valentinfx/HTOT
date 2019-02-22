@@ -24,4 +24,4 @@ These steps should be done by your system administrator
 3. Specify the job priority
 
 #### Known limitations
-- At the moment, it is not possible to use HTOT if your scene uses ```$HIPNAME``` (e.g. in filecache nodes). You have to manually replace them with your scene name.
+- At the moment, it is not possible to use HTOT if your scene uses ```$HIPNAME``` (e.g. in filecache nodes). You have to manually replace them with your scene name (except for Mantra nodes).
