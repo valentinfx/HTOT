@@ -93,10 +93,10 @@ f.write('	}\n')
 # Close file
 f.close()
 
-print("Job script file saved to : " + alfFile)
+print("Job script file saved to : "+alfFile)
 
 # Send .alf file to tractor
 print("Spooling job to Tractor...")
-subprocess.call("C:/PROGRA~1/Pixar/Tractor-2.2/bin/tractor-spool.bat " + alfFile )
+subprocess.call('"C:/Program Files/Pixar/Tractor-2.3/bin/tractor-spool.bat" "'+alfFile+'"')
 
 os.system('pause')
