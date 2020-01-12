@@ -26,10 +26,8 @@ import tractor.api.author as author
 # --------------------------------------------------------------------------------------------------
 log.basicConfig(level='DEBUG')  # TODO : switch to info before merge
 
-NODE = hou.pwd
-
-TRACTOR_API_PATH = NODE.evalParm('tractorApiPath') or 'C:/Program Files/Pixar/Tractor-2.3'
-TRACTOR_URL = NODE.evalParm('tractorUrl') or 'http://tractor-engine/tv/'
+TRACTOR_API_PATH = 'C:/Program Files/Pixar/Tractor-2.3'
+TRACTOR_URL = 'http://tractor-engine/tv/'
 # TEMP_DIR = NODE.evalParm('tempDir') or hou.expandString('$HIP/rfhTemp')
 
 HOUDINI_BIN = os.path.join(hou.expandString('$HFS'), 'bin')
@@ -40,7 +38,78 @@ HOUDINI_BIN = os.path.join(hou.expandString('$HFS'), 'bin')
 # --------------------------------------------------------------------------------------------------
 
 
-# TODO : refacto in a class
+class HtoTJob(object):
+    """Defines a Houdini to Tractor job"""
+
+    def __init__(self):
+        """Evaluate HtoT node parameters to get job arguments"""
+        self.sceneFile = hou.hipFile.path()
+        self.node = hou.pwd()
+
+        self.renderNode = self.node.evalParm('renderNode')
+
+        # We need to raise an error if the output driver does not exist
+        if not hou.node(self.renderNode):
+            text = 'Node "{}" does not exist, aborting'.format(self.renderNode)
+            hou.ui.displayMessage(text, severity=hou.severityType.Error)
+
+        # Evaluate "Job" tab parameters values
+        self.start = self.node.evalParm('rangex') or hou.expandString('$FSTART')
+        self.end = self.node.evalParm('rangey') or hou.expandString('$FEND')
+        shotName = self.node.evalParm('shotName') or hou.expandString('$HIPNAME')
+        projects = self.node.evalParm('projects') or ''
+        self.projects = projects.replace(' ', '').split(',')
+        self.priority = self.node.evalParm('priority') or 1
+        self.maxActive = self.node.evalParm('maxActive') or 0
+        self.debugMode = self.node.evalParm('debugMode')
+
+        # Evaluate "Advanced" tab parameters values
+        self.service = self.node.evalParm('service') or 'PixarRender'
+        self.tractorApiPath = self.node.evalParm('tractorApiPath') or TRACTOR_API_PATH
+        self.tractorUrl = self.node.evalParm('tractorUrl') or TRACTOR_URL
+
+        # cast to needed types (XXX note sure this is needed)
+        # start = int(start)
+        # end = int(end)
+        # priority = int(priority)
+
+        self.jobTitle = '[{}] Render frames {} - {}'.format(shotName.strip('.hip'), self.start, self.end)
+
+        self.job = self.createJob()
+
+    def createJob(self):
+        """Create Houdini tractor job from parameters
+
+        :return: A Tractor Job object
+        :rtype: :class:`author.Job`
+        """
+        # Create job
+        jobInstance = author.Job(
+            title=self.jobTitle,
+            projects=self.projects,
+            priority=self.priority,
+            service=self.service,
+            maxActive=self.maxActive
+        )
+
+        # Create one task per frame
+        for frame in range(self.start, self.end + 1):
+            taskTitle = 'Render frame {}'.format(frame)
+            hbatchPath = os.path.join(HOUDINI_BIN, 'hbatch.exe')
+            cmd = '{0} e render -V -f {1} {2} {3} ; quit'.format(hbatchPath, frame, frame, self.renderNode)
+            jobInstance.newTask(title=taskTitle, argv=[cmd, self.sceneFile], service=self.service)
+
+        return jobInstance
+
+    def sendToFarm(self):
+        """Send job to farm"""
+        if self.debugMode:
+            log.info('DEBUG MODE IS ON')
+            log.info('Job to send : \n')
+            print self.job.asTcl()
+        else:
+            jobId = self.job.spool()
+            log.info('Job sent to farm : {}#jid={}'.format(TRACTOR_URL, jobId))
 
 
 def checkUnsavedChanges():
@@ -65,40 +134,6 @@ def addToPathEnvVar():
         sys.path.append(HOUDINI_BIN)
 
 
-def evaluateNode():
-    """Evaluate houdini node parameters to get job arguments
-    :return: A tuple of needed arguments to create the tractor job
-    :rtype: tuple
-    """
-    # Fetch node's parameters values
-    renderNode = NODE.evalParm('renderNode')
-
-    # We need to raise an error if the node does not exist
-    if not hou.node(renderNode):
-        text = 'Node "{}" does not exist, aborting'.format(renderNode)
-        hou.ui.displayMessage(text, severity=hou.severityType.Error)
-
-    start = NODE.evalParm('rangex') or hou.expandString('$FSTART')
-    end = NODE.evalParm('rangey') or hou.expandString('$FEND')
-    shotName = NODE.evalParm('shotName') or hou.expandString('$HIPNAME')
-    project = NODE.evalParm('project') or ''
-    priority = NODE.evalParm('priority') or 1
-    maxActive = NODE.evalParm('maxActive') or 0
-    renderPath = NODE.evalParm('renderPath') or hou.expandString('$HIP/render')
-    debugMode = NODE.evalParm('debugMode')
-
-    service = NODE.evalParm('service') or 'PixarRender'
-
-    # cast to needed types (XXX note sure this is needed)
-    # start = int(start)
-    # end = int(end)
-    # priority = int(priority)
-
-    jobTitle = '[{}] Render frames {} - {}'.format(shotName.strip('.hip'), start, end)
-
-    return renderNode, start, end, jobTitle, project, priority, service
-
-
 def createPaths(paths):
     """This will create the needed paths if they don't exist
     :param paths: The paths to create
@@ -112,64 +147,11 @@ def createPaths(paths):
             os.makedirs(path)
 
 
-def createJob(renderNode, start, end, jobTitle, service, project, priority):
-    """Create a Renderman for Houdini tractor job
-
-    :param renderNode: absolute path to the node to render
-    :type renderNode: str
-    :param start: start frame
-    :type start: int
-    :param end: end frame
-    :type end: int
-    :param jobTitle: Title for the job
-    :type jobTitle: str
-    :param project: Current project name
-    :type project: str
-    :param priority: Job priority
-    :type priority: int
-    :param service: Job and tasks Service
-    :type service: str
-    :return: A Tractor Job object
-    :rtype: :class:`tractor.api.author.Job`
-    """
-    sceneFile = hou.hipFile.path()
-
-    # Create job
-    jobInstance = author.Job(title=jobTitle, projects=[project], priority=priority, service=service)
-
-    # Create one task per frame
-    for frame in range(start, end + 1):
-        taskTitle = 'Render frame {}'.format(frame)
-        # jobInstance.newTask(title=taskTitle, argv=['/usr/bin/prman', 'file.rib'], service=service)
-        hbatchPath = os.path.join(HOUDINI_BIN, 'hbatch.exe')
-        cmd = 'e render -V -f {0} {1} {2} ; quit'.format(frame, frame, renderNode)
-        jobInstance.newTask(title=taskTitle, argv=['', cmd, sceneFile], service=service)
-
-    return jobInstance
-
-
-def sendToFarm(jobInstance, debugMode=True):
-    """Send job to farm
-
-    :param jobInstance: The job to send to the farm
-    :type jobInstance: :class:`tractor.api.author.Job`
-    :param debugMode: If True, will only print the job dictionary
-    :type debugMode: bool
-    """
-    if debugMode:
-        log.info('Job to send : \n')
-        print jobInstance.asTcl()
-    else:
-        jobId = jobInstance.spool()
-        log.info('Job sent to farm : {}#jid={}'.format(TRACTOR_URL, jobId))
-
-
 def run():
     """HDA 'Send To Farm' button callback script"""
     if checkUnsavedChanges():
         return
 
     addToPathEnvVar()
-    jobArgs = evaluateNode()
-    job = createJob(*jobArgs)
-    sendToFarm(job, debugMode=True)
+    job = HtoTJob()
+    job.sendToFarm()

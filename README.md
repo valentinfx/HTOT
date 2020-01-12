@@ -17,13 +17,18 @@ HDA's Script tab
 
 ##### How to use HTOT
  
-1. Specify the Output Driver (e.g. `/out/mantra1` or `/out/RIS1`). This is the only mandatory field before you can
+1. Create a `htot` node in a `/OUT` context
+2. Specify the Output Driver (e.g. `/out/mantra1` or `/out/RIS1`). This is the only mandatory field before you can
 spool a job to Tractor.
-2. Set your job parameters :
-- Frame range (defaults : `$FSTART`,  `$FEND`)
-- Shot Name (this will be used to set the job title) (default : `$HIPNAME`)
-- Project Name
+3. Set your job parameters :
+   - Frame range : start and end frame (default : `$FSTART`,  `$FEND`)
+   - Shot Name : will be used to set the job title (default : `$HIPNAME`)
+   - Projects Name : Name of the projects attached to this job, separated by commas
+   - Priority : priority of the job (default : `1`)
+   - Max Active : cap the number of simultaneously active tasks from that job (default : `0`)
+   - Debug Mode : debug mode will only print your job to the command output instead of spooling it (default : `False`)
+4. You  may want to edit the default Tractor Api path and Houdini path in the "Advanced" tab. Note that this will not
+change the paths for the blades but only for the current machine
+4. You can also change Tractor's url in case the default doesn't work for you
 
 #### Known limitations
-- At the moment, it is not possible to use HTOT if your scene uses ```$HIPNAME``` (e.g. in filecache nodes). You have to manually replace them with your scene name (except for Mantra nodes).
-- The post-job cleanup won't delete ```$HIP/ifds/storage```. You will have to manually remove it after all your jobs are finished.
