@@ -26,6 +26,7 @@ import tractor.api.author as author
 # --------------------------------------------------------------------------------------------------
 log.basicConfig(level='DEBUG')  # TODO : switch to info before merge
 
+# Feel free to change these
 TRACTOR_API_PATH = 'C:/Program Files/Pixar/Tractor-2.3'
 TRACTOR_URL = 'http://tractor-engine/tv/'
 # TEMP_DIR = NODE.evalParm('tempDir') or hou.expandString('$HIP/rfhTemp')
@@ -46,12 +47,20 @@ class HtoTJob(object):
         self.sceneFile = hou.hipFile.path()
         self.node = hou.pwd()
 
-        self.renderNode = self.node.evalParm('renderNode')
+        self.outputDriver = self.node.evalParm('outputDriver')
+        self.outputDriverType = hou.node(self.node).type().name()
 
-        # We need to raise an error if the output driver does not exist
-        if not hou.node(self.renderNode):
-            text = 'Node "{}" does not exist, aborting'.format(self.renderNode)
+        # We need to raise an error if the output driver does not exist or is not of the right type
+        if not hou.node(self.outputDriver):
+            text = 'Node "{}" does not exist, aborting'.format(self.outputDriver)
             hou.ui.displayMessage(text, severity=hou.severityType.Error)
+
+        if self.outputDriverType not in ['ifd', 'ris']:
+            text = 'Node "{}" is of type "{}". Correct types are "ifd" (Mantra) ' \
+                   'or "ris" (Renderman)'.format(self.outputDriver, self.outputDriverType)
+            hou.ui.displayMessage(text, severity=hou.severityType.Error)
+
+        self.renderer = 'Mantra' if self.outputDriverType == 'ifd' else 'RfH'
 
         # Evaluate "Job" tab parameters values
         self.start = self.node.evalParm('rangex') or hou.expandString('$FSTART')
@@ -73,7 +82,13 @@ class HtoTJob(object):
         # end = int(end)
         # priority = int(priority)
 
-        self.jobTitle = '[{}] Render frames {} - {}'.format(shotName.strip('.hip'), self.start, self.end)
+        # Construct job title
+        self.jobTitle = '[{}][{}] Render frames {} - {}'.format(
+            shotName.strip('.hip'),
+            self.renderer,
+            self.start,
+            self.end
+        )
 
         self.job = self.createJob()
 
@@ -92,11 +107,13 @@ class HtoTJob(object):
             maxActive=self.maxActive
         )
 
+        # if self.outputDriverType == 'Mantra'  # TODO : generate ifd files
+
         # Create one task per frame
         for frame in range(self.start, self.end + 1):
             taskTitle = 'Render frame {}'.format(frame)
             hbatchPath = os.path.join(HOUDINI_BIN, 'hbatch.exe')
-            cmd = '{0} e render -V -f {1} {2} {3} ; quit'.format(hbatchPath, frame, frame, self.renderNode)
+            cmd = '{0} e render -V -f {1} {2} {3} ; quit'.format(hbatchPath, frame, frame, self.outputDriver)
             jobInstance.newTask(title=taskTitle, argv=[cmd, self.sceneFile], service=self.service)
 
         return jobInstance
@@ -155,3 +172,25 @@ def run():
     addToPathEnvVar()
     job = HtoTJob()
     job.sendToFarm()
+
+
+def onOutputDriverParmChange():
+    """Callback script executed every time the 'outputDriver' parameter is changed
+
+    If the outputDriver is a Mantra or RIS node, this will link some parameters
+    """
+    node = hou.pwd()
+    outputDriverPath = node.evalParm('outputDriver')
+    outputDriver = hou.node(outputDriverPath)
+
+    # We need to return early to avoid slowing down Houdini too much
+    if outputDriver is None:
+        return
+
+    outputDriverType = outputDriver.type().name()
+
+    if outputDriverType not in ['ifd', 'ris']:
+        return
+
+    node.parm('rangex').setExpression('ch("{}/f1")'.format(outputDriverPath))
+    node.parm('rangey').setExpression('ch("{}/f2")'.format(outputDriverPath))
