@@ -29,6 +29,12 @@ log.basicConfig(level='DEBUG')  # TODO : switch to info before merge
 # Feel free to change these
 TRACTOR_URL = 'http://tractor-engine/tv/'
 # TEMP_DIR = NODE.evalParm('tempDir') or hou.expandString('$HIP/rfhTemp')
+NODE_TYPES_MAPPING = {
+    'ifd': 'Mantra',
+    'ris': 'RfH',
+    'ris::22': 'RfH 22',
+    'ris::23': 'RfH 23'
+}
 
 # --------------------------------------------------------------------------------------------------
 # Definitions
@@ -44,19 +50,22 @@ class HtoTJob(object):
         self.node = hou.pwd()
 
         outputDriver = self.node.evalParm('outputDriver')
-        self.outputDriver = hou.node(outputDriver).path()
 
         # We need to raise an error if the output driver does not exist or is not of the right type
-        if not hou.node(self.outputDriver):
-            text = 'Node does not exist : "{}"'.format(self.outputDriver)
-            hou.ui.displayMessage(text, severity=hou.severityType.Error)
+        if hou.node(outputDriver) is None:
+            text = 'Node does not exist : "{}"'.format(outputDriver)
+            raise RuntimeError(text)
 
+        self.outputDriver = hou.node(outputDriver).path()
         self.outputDriverType = hou.node(self.outputDriver).type().name()
 
-        if self.outputDriverType not in ['ifd', 'ris']:
-            text = 'Node "{}" is of type "{}". Correct types are "ifd" (Mantra) ' \
-                   'or "ris" (Renderman)'.format(self.outputDriver, self.outputDriverType)
-            hou.ui.displayMessage(text, severity=hou.severityType.Error)
+        if self.outputDriverType not in NODE_TYPES_MAPPING:
+            text = 'Node "{}" is of type "{}". Correct types are {}'.format(
+                self.outputDriver,
+                self.outputDriverType,
+                NODE_TYPES_MAPPING.keys()
+            )
+            raise TypeError(text)
 
         self.renderer = self.node.evalParm('renderer')
         self.start = self.node.evalParm('rangex') or hou.expandString('$FSTART')
@@ -191,10 +200,10 @@ def onOutputDriverParmChange():
 
     outputDriverType = outputDriver.type().name()
 
-    if outputDriverType not in ['ifd', 'ris']:
+    if outputDriverType not in NODE_TYPES_MAPPING.keys():
         return
 
-    renderer = 'Mantra' if outputDriverType == 'ifd' else 'RfH'
+    renderer = NODE_TYPES_MAPPING.get(outputDriverType)
 
     node.parm('rangex').setExpression('ch("{}/f1")'.format(outputDriverPath))
     node.parm('rangey').setExpression('ch("{}/f2")'.format(outputDriverPath))
