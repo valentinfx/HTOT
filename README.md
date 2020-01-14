@@ -7,9 +7,7 @@ It currently supports sending jobs for both Renderman and Mantra.
 ##### How set up your machines
 These steps should be done by your system administrator (or IT team)
 1. Make sure Houdini 17+ and Tractor 2.3 are both correctly installed on every machine
-2. Add Houdini bin path to every machine's PATH environment variable. The path should look like :
-`C:/Program Files/Side Effects Software/Houdini 17.0.352/bin`
-3. Add Tractor's Python API path to every machine's PYTHONPATH environment variable. The path should look like :
+2. Add Tractor's Python API path to every machine's PYTHONPATH environment variable. The path should look like :
 `C:/Program Files/Pixar/Tractor-2.3/lib/python2.7/Lib/site-packages`
 
 ##### How to 'install' HtoT
