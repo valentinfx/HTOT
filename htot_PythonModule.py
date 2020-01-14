@@ -27,7 +27,7 @@ import tractor.api.author as author
 log.basicConfig(level='DEBUG')  # TODO : switch to info before merge
 
 # Feel free to change these
-TRACTOR_URL = 'http://tractor-engine/tv/'
+TRACTOR_URL = 'http://tractor-engine/tv/'  # TODO : use tractor URL API instead
 # TEMP_DIR = NODE.evalParm('tempDir') or hou.expandString('$HIP/rfhTemp')
 NODE_TYPES_MAPPING = {
     'ifd': 'Mantra',
