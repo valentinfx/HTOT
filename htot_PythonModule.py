@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-:module: htot
+:module: htot.htot_PythonModule
 :version: v2.0.0
 :description: Core functions for HDA module that allows spooling jobs to Tractor
     This file is just a copy of what's inside the HDA "Script" tab
