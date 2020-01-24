@@ -128,6 +128,8 @@ class HtoTJob(object):
 
             cmd = author.Command()
             hbatchPath = os.path.join(self.houdiniBinPath, 'hbatch.exe')
+
+            # TODO : try something else as this does not work
             cmd.argv = [
                 '"{}" -c "render -V -f {} {} {} ; quit" {}'.format(
                     hbatchPath,
@@ -140,6 +142,8 @@ class HtoTJob(object):
             renderTask.addCommand(cmd)
 
             job.addChild(renderTask)
+
+        # TODO : cleanup
 
         return job
 

@@ -39,7 +39,7 @@ def onCreated():
     except ImportError:
         errorMsg = 'Could not import tractor module, you wont be able to use HtoT until this is fixed\n' \
                    'You can try adding the Tractor API path to your PYTHONPATH environment variable'
-        hou.ui.displayMessage(errorMsg, severity=hou.severityType.Error)
+        hou.ui.displayMessage(text=errorMsg, severity=hou.severityType.Error)
         return
 
 
