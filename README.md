@@ -36,6 +36,7 @@ spool a job to Tractor.
    - Max Active : cap the number of simultaneously active tasks from that job (default : disabled)
    - Debug Mode : debug mode will only print your job to the command output instead of spooling it (default : `False`)
 4. Hit 'Spool To Tractor' !
+5. For more information, you can click the Help button on HtoT's parameters interface
 
 ## Contribute
 
