@@ -12,7 +12,8 @@
 # Python built-in modules import
 # --------------------------------------------------------------------------------------------------
 import os
-import sys
+import random
+import string
 import logging as log
 
 # --------------------------------------------------------------------------------------------------
@@ -28,7 +29,6 @@ log.basicConfig(level='DEBUG')  # TODO : switch to info before merge
 
 # Feel free to change these
 TRACTOR_URL = 'http://tractor-engine/tv/'  # TODO : use tractor URL API instead
-# TEMP_DIR = NODE.evalParm('tempDir') or hou.expandString('$HIP/rfhTemp')
 NODE_TYPES_MAPPING = {
     'ifd': 'Mantra',
     'ris': 'RfH',
@@ -70,13 +70,21 @@ class HtoTJob(object):
             )
             raise TypeError(text)
 
+        # Prepare temp scene file
+        self.sceneDir = os.path.dirname(self.sceneFile)
+        ext = self.sceneFile.split('.')[-1]
+        self.randomStr = ''.join([random.choice(string.ascii_letters + string.digits) for n in xrange(6)])
+        self.tempSceneFileName = 'htot_{}.{}'.format(self.randomStr, ext)
+        self.tempSceneFile = os.path.join(self.sceneDir, self.tempSceneFileName)
+
+        # Evaluate first tab parameters values
         self.renderer = self.node.evalParm('renderer')
         self.start = self.node.evalParm('rangex') or hou.expandString('$FSTART')
         self.end = self.node.evalParm('rangey') or hou.expandString('$FEND')
+        self.sceneFileName = hou.expandString('$HIPNAME')
 
-        # Evaluate first tab parameters values
         defaultTitle = '[{}][{}] Render frames {} - {}'.format(
-            hou.expandString('$HIPNAME'),
+            self.sceneFileName,
             self.renderer,
             self.start,
             self.end
@@ -92,6 +100,7 @@ class HtoTJob(object):
 
         # Evaluate "Advanced" tab parameters values
         self.houdiniBinPath = self.node.evalParm('houdiniBinPath') or hou.expandString('$HFS/bin')
+        self.htotPath = self.node.evalParm('tempDir') or hou.expandString('$HIP/htot')
         self.service = self.node.evalParm('service') or 'PixarRender'
         self.tractorUrl = self.node.evalParm('tractorUrl') or TRACTOR_URL
         self.debugMode = self.node.evalParm('debugMode')
@@ -120,30 +129,49 @@ class HtoTJob(object):
             job.maxactive = self.maxActive
         job.comment = self.comment
         job.service = self.service
+        job.serialsubtasks = True
+        # job.addCleanup(author.Command(argv="/bin/cleanup this"))  # TODO
+
+        masterTask = author.Task()
+        masterTask.title = 'Render all'
+        job.addChild(masterTask)
 
         # Create one task per frame
         for frame in range(self.start, self.end + 1):
-            renderTask = author.Task()
-            renderTask.title = 'Render frame {}'.format(frame)
+            # =============================
+            # Renderman
+            # =============================
+            if self.renderer.startswith('RfH'):
 
-            cmd = author.Command()
-            hbatchPath = os.path.join(self.houdiniBinPath, 'hbatch.exe')
+                # Generate Rib files
+                ribTask = author.Task()
+                ribTask.title = 'Generate rib for frame {}'.format(frame)
+                ribFile = os.path.join(self.htotPath, 'htot_{}.{}.rib'.format(self.randomStr, str(frame).zfill(4)))
+                ribTaskCmd = author.Command()
+                ribTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe')]
+                ribTaskCmd.argv.append('-c')
+                hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriver)
+                ribTaskCmd.argv.append(hscriptCmd)
+                ribTaskCmd.argv.append('-w')  # suppress load warnings
+                ribTaskCmd.argv.append(self.tempSceneFile)
+                ribTask.addCommand(ribTaskCmd)
 
-            # TODO : try something else as this does not work
-            cmd.argv = [
-                '"{}" -c "render -V -f {} {} {} ; quit" {}'.format(
-                    hbatchPath,
-                    frame,
-                    frame,
-                    self.outputDriver,
-                    self.sceneFile
-                )
-            ]
-            renderTask.addCommand(cmd)
+                # Render ribs
+                renderTask = author.Task()
+                renderTask.title = 'Render frame {}'.format(frame)
+                renderTaskCmd = author.Command()
 
-            job.addChild(renderTask)
+                renderTaskCmd.argv = ['prman.exe', ribFile]
+                renderTask.addCommand(renderTaskCmd)
+                renderTask.addChild(ribTask)
 
-        # TODO : cleanup
+                masterTask.addChild(renderTask)
+
+            # =============================
+            # Mantra
+            # =============================
+            elif self.renderer == 'Mantra':
+                raise NotImplementedError
 
         return job
 
@@ -157,6 +185,30 @@ class HtoTJob(object):
             jobId = self.job.spool()
             if jobId:
                 print 'Job sent to Tractor : {}#jid={}'.format(TRACTOR_URL, jobId)
+
+    def prepareTempScene(self):
+        """This will save a temporary scene to be used by Tractor blades"""
+        if self.debugMode:
+            return
+
+        if not os.path.isdir(self.htotPath):
+            os.makedirs(self.htotPath)
+
+        archiveExtension = 'ifd' if self.renderer == 'Mantra' else 'rib'
+        archiveOutput = '{}/htot_{}.$F4.{}'.format(self.htotPath, self.randomStr, archiveExtension)
+
+        if self.renderer == 'Mantra':
+            raise NotImplementedError
+
+        else:
+            hou.parm('{}/diskfile'.format(self.outputDriver)).set(True)
+            hou.parm('{}/binaryrib'.format(self.outputDriver)).set(False)
+            hou.parm('{}/soho_diskfile'.format(self.outputDriver)).set(archiveOutput)
+
+            hou.hipFile.save(self.tempSceneFile)
+
+            hou.parm('{}/diskfile'.format(self.outputDriver)).set(False)
+            hou.hipFile.save(self.sceneFile)
 
 
 def checkUnsavedChanges():
@@ -189,6 +241,7 @@ def run():
         return
 
     job = HtoTJob()
+    job.prepareTempScene()
     job.sendToFarm()
 
 
