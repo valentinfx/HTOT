@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 :module: htot.htot_OnCreated
+:platform: Windows
 :description: HtoT node 'OnCreated' callback script
     This file is just a copy of what's inside the HDA "Script" tab
 :author: Valentin David <vdavid.pro@gmail.com>
