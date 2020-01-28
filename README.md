@@ -1,7 +1,8 @@
 # HtoT v2.0.0
 ## Houdini To Tractor
 
-HtoT is intended to work with Tractor 2.3, Houdini 17 and up. 
+HtoT is intended to work with Tractor 2.3, Houdini 17 and up.
+
 It currently supports sending jobs for Renderman, Mantra and Arnold.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -20,8 +21,8 @@ machine's **PYTHONPATH** environment variable. The path should look like :
 1. Copy **htot.hdanc** to your Houdini asset library. Ideally this should be a shared directory for every machine.
 For more details, check out : 
 [sidefx.com/docs/houdini/assets/install](http://www.sidefx.com/docs/houdini/assets/install.html)
-2. Since version 2, you do not need to copy the python files anywhere, they are just a copy of the contents found in the
-HDA's **Scripts** tab
+2. Since version 2, you do not need to copy the python files anywhere, they are just a copy of the contents found
+in the HDA's **Scripts** tab
 
 ### How to use HtoT
 1. Create a `htot` node in a `/out` context
@@ -47,4 +48,10 @@ implementing a new render engine should be easy.
 
 - At the moment archives are generated then frames are rendered from these archives. This is to avoid using
 one Houdini license AND one render engine license per blade for the entire duration of the render. In the future 
-it would be interesting to be able to have a choice (for cases where licenses are not a problem).
+it would be interesting to be able to choose (for cases where licenses are not a problem and/or archives will
+take too much space).
+
+- The temporary scene file is generated before spooling the job and is deleted during the cleanup task. This means
+users won't be able to retry a job if its status is done. A quick fix would be to add a checkbox that strips the
+temp scene file from the list of files to delete. A better solution would be to generate the temp scene with
+Tractor in a task before the masterTask.
