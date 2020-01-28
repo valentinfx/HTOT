@@ -51,19 +51,20 @@ class HtoTJob(object):
         self.sceneFile = hou.hipFile.path()
         self.node = hou.pwd()
 
-        outputDriver = self.node.evalParm('outputDriver')
+        outputDriverRelativePath = self.node.evalParm('outputDriver')
 
         # We need to raise an error if the output driver does not exist or is not of the right type
-        if hou.node(outputDriver) is None:
-            text = 'Node does not exist : "{}"'.format(outputDriver)
+        if hou.node(outputDriverRelativePath) is None:
+            text = 'Node does not exist : "{}"'.format(outputDriverRelativePath)
             raise RuntimeError(text)
 
-        self.outputDriver = hou.node(outputDriver).path()
-        self.outputDriverType = hou.node(self.outputDriver).type().name()
+        self.outputDriver = hou.node(outputDriverRelativePath)
+        self.outputDriverPath = self.outputDriver.path()
+        self.outputDriverType = hou.node(self.outputDriverPath).type().name()
 
         if self.outputDriverType not in RENDERER_MAPPING.keys():
             text = 'Node "{}" is of type "{}". Correct types are {}'.format(
-                self.outputDriver,
+                self.outputDriverPath,
                 self.outputDriverType,
                 RENDERER_MAPPING.keys()
             )
@@ -150,7 +151,7 @@ class HtoTJob(object):
             archiveTaskCmd = author.Command()
             archiveTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe')]
             archiveTaskCmd.argv.append('-c')
-            hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriver)
+            hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriverPath)
             archiveTaskCmd.argv.append(hscriptCmd)
             archiveTaskCmd.argv.append('-w')  # suppress load warnings
             archiveTaskCmd.argv.append(self.tempSceneFile)
@@ -215,38 +216,38 @@ class HtoTJob(object):
 
         # Mantra  # WATCHME
         if self.renderer == 'Mantra':
-            hou.parm('{}/soho_outputmode'.format(self.outputDriver)).set(True)
-            hou.parm('{}/soho_diskfile'.format(self.outputDriver)).set(self.archiveOutput)
-            hou.parm('{}/vm_inlinestorage'.format(self.outputDriver)).set(True)
-            hou.parm('{}/vm_binarygeometry'.format(self.outputDriver)).set(True)
+            self.outputDriver.parm('soho_outputmode').set(True)
+            self.outputDriver.parm('soho_diskfile').set(self.archiveOutput)
+            self.outputDriver.parm('vm_inlinestorage').set(True)
+            self.outputDriver.parm('vm_binarygeometry').set(True)
             # ifdsDir = os.path.join(self.htotTempDir, 'ifds', 'storage')
-            # hou.parm('{}/vm_tmpsharedstorage'.format(self.outputDriver)).set(ifdsDir)
+            # hou.parm('{}/vm_tmpsharedstorage'.format(self.outputDriverPath)).set(ifdsDir)
 
             hou.hipFile.save(self.tempSceneFile)
 
-            hou.parm('{}/soho_outputmode'.format(self.outputDriver)).set(False)
+            self.outputDriver.parm('soho_outputmode').set(False)
             hou.hipFile.save(self.sceneFile)
 
         # Renderman
         elif self.renderer.startswith('RfH'):
-            hou.parm('{}/diskfile'.format(self.outputDriver)).set(True)
-            hou.parm('{}/binaryrib'.format(self.outputDriver)).set(True)
-            hou.parm('{}/soho_diskfile'.format(self.outputDriver)).set(self.archiveOutput)
+            self.outputDriver.parm('diskfile').set(True)
+            self.outputDriver.parm('binaryrib').set(True)
+            self.outputDriver.parm('soho_diskfile').set(self.archiveOutput)
 
             hou.hipFile.save(self.tempSceneFile)
 
-            hou.parm('{}/diskfile'.format(self.outputDriver)).set(False)
+            self.outputDriver.parm('diskfile').set(False)
             hou.hipFile.save(self.sceneFile)
 
         # Arnold  # WATCHME
         elif self.renderer == 'Arnold':
-            hou.parm('{}/ar_ass_export_enable'.format(self.outputDriver)).set(True)
-            hou.parm('{}/ar_ass_file'.format(self.outputDriver)).set(self.archiveOutput)
-            hou.parm('{}/ar_binary_ass'.format(self.outputDriver)).set(True)
+            self.outputDriver.parm('ar_ass_export_enable').set(True)
+            self.outputDriver.parm('ar_ass_file').set(self.archiveOutput)
+            self.outputDriver.parm('ar_binary_ass').set(True)
 
             hou.hipFile.save(self.tempSceneFile)
 
-            hou.parm('{}/ar_ass_export_enable'.format(self.outputDriver)).set(False)
+            self.outputDriver.parm('ar_ass_export_enable').set(False)
             hou.hipFile.save(self.sceneFile)
 
 
@@ -291,7 +292,7 @@ def onOutputDriverParmChange():
     If the outputDriver is a Mantra or RIS node, this will link some parameters
     """
     node = hou.pwd()
-    outputDriverPath = node.evalParm('outputDriver')
+    outputDriverPath = node.evalParm('outputDriverPath')
     outputDriver = hou.node(outputDriverPath)
 
     # We need to return early to avoid slowing down Houdini too much
