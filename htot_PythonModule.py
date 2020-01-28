@@ -29,19 +29,18 @@ log.basicConfig(level='DEBUG')  # TODO : switch to info before merge
 
 # Feel free to change these
 TRACTOR_URL = 'http://tractor-engine/tv/'  # TODO : use tractor URL API instead
-NODE_TYPES_MAPPING = {
-    'ifd': 'Mantra',
-    'ris': 'RfH',
-    'ris::22': 'RfH 22',
-    'ris::23': 'RfH 23'
+RENDERER_MAPPING = {
+    'ifd':     {'niceName': 'Mantra', 'archiveExt': 'ifd'},
+    'ris':     {'niceName': 'RfH',    'archiveExt': 'rib'},
+    'ris::22': {'niceName': 'RfH 22', 'archiveExt': 'rib'},
+    'ris::23': {'niceName': 'RfH 23', 'archiveExt': 'rib'},
+    'arnold':  {'niceName': 'Arnold', 'archiveExt': 'ass'},
 }
+
 
 # --------------------------------------------------------------------------------------------------
 # Definitions
 # --------------------------------------------------------------------------------------------------
-
-
-# TODO : hda Help tab
 
 
 class HtoTJob(object):
@@ -62,11 +61,11 @@ class HtoTJob(object):
         self.outputDriver = hou.node(outputDriver).path()
         self.outputDriverType = hou.node(self.outputDriver).type().name()
 
-        if self.outputDriverType not in NODE_TYPES_MAPPING:
+        if self.outputDriverType not in RENDERER_MAPPING.keys():
             text = 'Node "{}" is of type "{}". Correct types are {}'.format(
                 self.outputDriver,
                 self.outputDriverType,
-                NODE_TYPES_MAPPING.keys()
+                RENDERER_MAPPING.keys()
             )
             raise TypeError(text)
 
@@ -79,6 +78,7 @@ class HtoTJob(object):
 
         # Evaluate first tab parameters values
         self.renderer = self.node.evalParm('renderer')
+        self.archiveExt = RENDERER_MAPPING.get(self.outputDriverType).get('archiveExt')
         self.start = self.node.evalParm('rangex') or hou.expandString('$FSTART')
         self.end = self.node.evalParm('rangey') or hou.expandString('$FEND')
         self.sceneFileName = hou.expandString('$HIPNAME')
@@ -100,10 +100,13 @@ class HtoTJob(object):
 
         # Evaluate "Advanced" tab parameters values
         self.houdiniBinPath = self.node.evalParm('houdiniBinPath') or hou.expandString('$HFS/bin')
-        self.htotPath = self.node.evalParm('tempDir') or hou.expandString('$HIP/htot')
+        self.htotTempDir = self.node.evalParm('tempDir') or hou.expandString('$HIP/htot')
         self.service = self.node.evalParm('service') or 'PixarRender'
         self.tractorUrl = self.node.evalParm('tractorUrl') or TRACTOR_URL
         self.debugMode = self.node.evalParm('debugMode')
+
+        # Deduce
+        self.archiveOutput = os.path.join(self.htotTempDir, 'htot_{}.$F4.{}'.format(self.randomStr, self.archiveExt))
 
         # cast to needed types
         self.start = int(self.start)
@@ -130,7 +133,6 @@ class HtoTJob(object):
         job.comment = self.comment
         job.service = self.service
         job.serialsubtasks = True
-        # job.addCleanup(author.Command(argv="/bin/cleanup this"))  # TODO
 
         masterTask = author.Task()
         masterTask.title = 'Render all'
@@ -138,40 +140,49 @@ class HtoTJob(object):
 
         # Create one task per frame
         for frame in range(self.start, self.end + 1):
-            # =============================
+
+            # Generate archive (rib/ifd/ass)
+            archiveTask = author.Task()
+            archiveTask.title = 'Generate {} for frame {}'.format(self.archiveExt, frame)
+            archiveTask.service = self.service
+            archiveFile = self.archiveOutput.replace('$F4', str(frame).zfill(4))
+            archiveTaskCmd = author.Command()
+            archiveTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe')]
+            archiveTaskCmd.argv.append('-c')
+            hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriver)
+            archiveTaskCmd.argv.append(hscriptCmd)
+            archiveTaskCmd.argv.append('-w')  # suppress load warnings
+            archiveTaskCmd.argv.append(self.tempSceneFile)
+            archiveTaskCmd.addCommand(archiveTaskCmd)
+
+            # Render generated archive
+            renderTask = author.Task()
+            renderTask.title = 'Render frame {}'.format(frame)
+            renderTask.service = self.service
+            renderTaskCmd = author.Command()
+
             # Renderman
-            # =============================
             if self.renderer.startswith('RfH'):
+                renderTaskCmd.argv = ['prman.exe', archiveFile]
 
-                # Generate Rib files
-                ribTask = author.Task()
-                ribTask.title = 'Generate rib for frame {}'.format(frame)
-                ribFile = os.path.join(self.htotPath, 'htot_{}.{}.rib'.format(self.randomStr, str(frame).zfill(4)))
-                ribTaskCmd = author.Command()
-                ribTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe')]
-                ribTaskCmd.argv.append('-c')
-                hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriver)
-                ribTaskCmd.argv.append(hscriptCmd)
-                ribTaskCmd.argv.append('-w')  # suppress load warnings
-                ribTaskCmd.argv.append(self.tempSceneFile)
-                ribTask.addCommand(ribTaskCmd)
-
-                # Render ribs
-                renderTask = author.Task()
-                renderTask.title = 'Render frame {}'.format(frame)
-                renderTaskCmd = author.Command()
-
-                renderTaskCmd.argv = ['prman.exe', ribFile]
-                renderTask.addCommand(renderTaskCmd)
-                renderTask.addChild(ribTask)
-
-                masterTask.addChild(renderTask)
-
-            # =============================
-            # Mantra
-            # =============================
+            # Mantra  # TODO
             elif self.renderer == 'Mantra':
-                raise NotImplementedError
+                renderTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'mantra.exe'), '-f', archiveFile]
+
+            # Arnold  # TODO
+            elif self.renderer == 'Arnold':
+                raise NotImplementedError()
+
+            renderTask.addCommand(renderTaskCmd)
+            renderTask.addChild(archiveTask)
+
+            masterTask.addChild(renderTask)
+
+        # Cleanup  # WATCHME
+        cleanupCmd = author.Command()
+        cleanupCmd.argv = ['TractorBuiltIn', 'File', 'delete', self.tempSceneFile]
+        cleanupCmd.argv.extend([n for n in os.listdir(self.htotTempDir) if n.startswith('htot_{}'.format(self.randomStr))])
+        job.addCleanup(cleanupCmd)
 
         return job
 
@@ -191,23 +202,42 @@ class HtoTJob(object):
         if self.debugMode:
             return
 
-        if not os.path.isdir(self.htotPath):
-            os.makedirs(self.htotPath)
+        createPaths(self.htotTempDir)
 
-        archiveExtension = 'ifd' if self.renderer == 'Mantra' else 'rib'
-        archiveOutput = '{}/htot_{}.$F4.{}'.format(self.htotPath, self.randomStr, archiveExtension)
-
+        # Mantra  # WATCHME
         if self.renderer == 'Mantra':
-            raise NotImplementedError
+            hou.parm('{}/soho_outputmode'.format(self.outputDriver)).set(True)
+            hou.parm('{}/soho_diskfile'.format(self.outputDriver)).set(self.archiveOutput)
+            hou.parm('{}/vm_inlinestorage'.format(self.outputDriver)).set(True)
+            hou.parm('{}/vm_binarygeometry'.format(self.outputDriver)).set(True)
+            # ifdsDir = os.path.join(self.htotTempDir, 'ifds', 'storage')
+            # hou.parm('{}/vm_tmpsharedstorage'.format(self.outputDriver)).set(ifdsDir)
 
-        else:
+            hou.hipFile.save(self.tempSceneFile)
+
+            hou.parm('{}/soho_outputmode'.format(self.outputDriver)).set(False)
+            hou.hipFile.save(self.sceneFile)
+
+        # Renderman
+        elif self.renderer.startswith('RfH'):
             hou.parm('{}/diskfile'.format(self.outputDriver)).set(True)
-            hou.parm('{}/binaryrib'.format(self.outputDriver)).set(False)
-            hou.parm('{}/soho_diskfile'.format(self.outputDriver)).set(archiveOutput)
+            hou.parm('{}/binaryrib'.format(self.outputDriver)).set(True)
+            hou.parm('{}/soho_diskfile'.format(self.outputDriver)).set(self.archiveOutput)
 
             hou.hipFile.save(self.tempSceneFile)
 
             hou.parm('{}/diskfile'.format(self.outputDriver)).set(False)
+            hou.hipFile.save(self.sceneFile)
+
+        # Arnold  # WATCHME
+        elif self.renderer == 'Arnold':
+            hou.parm('{}/ar_ass_export_enable'.format(self.outputDriver)).set(True)
+            hou.parm('{}/ar_ass_file'.format(self.outputDriver)).set(self.archiveOutput)
+            hou.parm('{}/ar_binary_ass'.format(self.outputDriver)).set(True)
+
+            hou.hipFile.save(self.tempSceneFile)
+
+            hou.parm('{}/ar_ass_export_enable'.format(self.outputDriver)).set(False)
             hou.hipFile.save(self.sceneFile)
 
 
@@ -215,7 +245,7 @@ def checkUnsavedChanges():
     """This will check if the current scene has unsaved changes"""
     if hou.hipFile.hasUnsavedChanges():
         text = 'Current scene has unsaved changes. Please save your scene and retry'
-        hou.ui.displayMessage(text, severity=hou.severityType.Warning)
+        hou.ui.displayMessage(text=text, severity=hou.severityType.Warning)
         return True
 
     else:
@@ -224,6 +254,7 @@ def checkUnsavedChanges():
 
 def createPaths(paths):
     """This will create the needed paths if they don't exist
+
     :param paths: The paths to create
     :type paths: str | list of str
     """
@@ -260,10 +291,10 @@ def onOutputDriverParmChange():
 
     outputDriverType = outputDriver.type().name()
 
-    if outputDriverType not in NODE_TYPES_MAPPING.keys():
+    if outputDriverType not in RENDERER_MAPPING.keys():
         return
 
-    renderer = NODE_TYPES_MAPPING.get(outputDriverType)
+    renderer = RENDERER_MAPPING.get(outputDriverType).get('niceName')
 
     node.parm('rangex').setExpression('ch("{}/f1")'.format(outputDriverPath))
     node.parm('rangey').setExpression('ch("{}/f2")'.format(outputDriverPath))
