@@ -105,8 +105,9 @@ class HtoTJob(object):
         self.tractorUrl = self.node.evalParm('tractorUrl') or TRACTOR_URL
         self.debugMode = self.node.evalParm('debugMode')
 
-        # Deduce
+        # Deduce other data
         self.archiveOutput = os.path.join(self.htotTempDir, 'htot_{}.$F4.{}'.format(self.randomStr, self.archiveExt))
+        self.toDelete = [self.tempSceneFile]
 
         # cast to needed types
         self.start = int(self.start)
@@ -155,6 +156,9 @@ class HtoTJob(object):
             archiveTaskCmd.argv.append(self.tempSceneFile)
             archiveTaskCmd.addCommand(archiveTaskCmd)
 
+            # Add archive file to be deleted by cleanup task
+            self.toDelete.append(archiveFile)
+
             # Render generated archive
             renderTask = author.Task()
             renderTask.title = 'Render frame {}'.format(frame)
@@ -180,8 +184,8 @@ class HtoTJob(object):
 
         # Cleanup  # WATCHME
         cleanupCmd = author.Command()
-        cleanupCmd.argv = ['TractorBuiltIn', 'File', 'delete', self.tempSceneFile]
-        cleanupCmd.argv.extend([n for n in os.listdir(self.htotTempDir) if n.startswith('htot_{}'.format(self.randomStr))])
+        cleanupCmd.argv = ['TractorBuiltIn', 'File', 'delete']
+        cleanupCmd.argv.extend(self.toDelete)
         job.addCleanup(cleanupCmd)
 
         return job
@@ -190,15 +194,20 @@ class HtoTJob(object):
         """Send job to farm"""
         if self.debugMode:
             log.info('DEBUG MODE IS ON')
-            log.info('Job to send : \n')
+            log.info('Job to send : \n\n')
             print self.job.asTcl()
+
         else:
             jobId = self.job.spool()
             if jobId:
                 print 'Job sent to Tractor : {}#jid={}'.format(TRACTOR_URL, jobId)
 
     def prepareTempScene(self):
-        """This will save a temporary scene to be used by Tractor blades"""
+        """This will save a temporary scene to be used by Tractor blades
+
+        This scene is a copy of the original scene with some alterations
+        to make it render archives instead of images directly
+        """
         if self.debugMode:
             return
 
