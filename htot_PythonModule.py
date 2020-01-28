@@ -289,7 +289,7 @@ def run():
 def onOutputDriverParmChange():
     """Callback script executed every time the 'outputDriver' parameter is changed
 
-    If the outputDriver is a Mantra or RIS node, this will link some parameters
+    If the outputDriver is a supported render node, this will link some parameters
     """
     node = hou.pwd()
     outputDriverPath = node.evalParm('outputDriverPath')
