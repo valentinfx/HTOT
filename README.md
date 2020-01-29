@@ -3,7 +3,8 @@
 
 HtoT is intended to work with Tractor 2.3, Houdini 17 and up.
 
-It currently supports sending jobs for Renderman, Mantra and Arnold.
+Currently HtoT fully supports sending jobs for Mantra. Renderman should come very soon. Arnold is already partially
+implemented although it won't go further as I have no way to test. 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PEP8](https://img.shields.io/badge/code%20style-pep8-orange.svg)](https://www.python.org/dev/peps/pep-0008/)
