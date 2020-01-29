@@ -116,6 +116,11 @@ class HtoTJob(object):
         self.end = int(self.end)
         self.priority = int(self.priority)
 
+        # normalize paths to forward slashes
+        self.houdiniBinPath = self.houdiniBinPath.replace('\\', '/')
+        self.archiveOutput = self.archiveOutput.replace('\\', '/')
+        self.tempSceneFile = self.tempSceneFile.replace('\\', '/')
+
         self.job = self.createJob()
 
     def createJob(self):
@@ -150,13 +155,13 @@ class HtoTJob(object):
             archiveTask.service = self.service
             archiveFile = self.archiveOutput.replace('$F4', str(frame).zfill(4))
             archiveTaskCmd = author.Command()
-            archiveTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe')]
+            archiveTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe').replace('\\', '/')]
             archiveTaskCmd.argv.append('-c')
             hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriverPath)
             archiveTaskCmd.argv.append(hscriptCmd)
             archiveTaskCmd.argv.append('-w')  # suppress load warnings
             archiveTaskCmd.argv.append(self.tempSceneFile)
-            archiveTaskCmd.addCommand(archiveTaskCmd)
+            archiveTask.addCommand(archiveTaskCmd)
 
             # Add archive file to be deleted by cleanup task
             self.toDelete.append(archiveFile)
@@ -173,7 +178,8 @@ class HtoTJob(object):
 
             # Mantra  # TODO
             elif self.renderer == 'Mantra':
-                renderTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'mantra.exe'), '-f', archiveFile]
+                renderTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'mantra.exe').replace('\\', '/')]
+                renderTaskCmd.argv.extend(['-f', archiveFile])
 
             # Arnold  # TODO
             elif self.renderer == 'Arnold':
@@ -293,7 +299,7 @@ def onOutputDriverParmChange():
     If the outputDriver is a supported render node, this will link some parameters
     """
     node = hou.pwd()
-    outputDriverPath = node.evalParm('outputDriverPath')
+    outputDriverPath = node.evalParm('outputDriver')
     outputDriver = hou.node(outputDriverPath)
 
     # We need to return early to avoid slowing down Houdini too much
