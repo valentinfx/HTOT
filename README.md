@@ -1,28 +1,53 @@
-# Houdini To Tractor
+# HtoT v2.0.0
+## Houdini To Tractor
 
-HTOT is intended to work with Tractor 2.2, Houdini 17 and Mantra.
+HtoT is intended to work with Tractor 2.3, Houdini 17 and up.
 
-##### How set up your machines
-These steps should be done by your system administrator
-1. Make sure Houdini 17 and Tractor 2.2 are correctly installed on every machine
-2. Add Houdini bin path to every machine's PATH environment variable. The path should look like :
-    ```C:\Program Files\Side Effects Software\Houdini 17.0.352\bin```
+Currently HtoT fully supports sending jobs for Mantra. Renderman should come very soon. Arnold is already partially
+implemented although it won't go further as I have no way to test. 
 
-##### How to 'install' HTOT
-1. Copy ```htot.hdanc``` to your Houdini asset library. Idealy this should be a shared directory for every machine.     For more details, check out : [sidefx.com/docs/houdini/assets/install](http://www.sidefx.com/docs/houdini/assets/install.html)
-2. Copy  ```htot.py ``` to a directory accessible by every machine
-3. Open houdini, go to the  ```/out/ ``` context and create a  ```HTOT ``` node.
-4. Right click ```HTOT``` and choose ```Allow editing of contents```.
-5. Dive in the node and in the ```Shell``` node you will need to modify the path for ```htot.py``` to where you copied it in step 2. Your shell command should look like :
-    ```hython //MYSERVER/scripts/htot.py $HIPFILE `chs("../outputDriver")` `chs("../f1")` `chs("../f2")` `chs("../jobPriority")` ```
-6. In the ```Assets``` menu, choose ```Save Asset``` > ```htot```. Your asset is now ready to be used.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![PEP8](https://img.shields.io/badge/code%20style-pep8-orange.svg)](https://www.python.org/dev/peps/pep-0008/)
 
-##### How to use HTOT
 
-1. Specify the frame range first. Default values are ```$FSTART``` and ```$FEND```
-2. Specify the Output Driver (e.g. ```/out/mantra1```)
-3. Specify the job priority
+## Getting Started
+### How to set up your machines
+These steps should be done by your system administrator (or IT team)
+1. Make sure Houdini 17+ and Tractor 2.3 are both correctly installed on every machine
+2. On every machine that needs to send Tractor jobs, add Tractor's Python API path to every 
+machine's **PYTHONPATH** environment variable. The path should look like :
+`C:/Program Files/Pixar/Tractor-2.3/lib/python2.7/Lib/site-packages`
 
-#### Known limitations
-- At the moment, it is not possible to use HTOT if your scene uses ```$HIPNAME``` (e.g. in filecache nodes). You have to manually replace them with your scene name (except for Mantra nodes).
-- The post-job cleanup won't delete ```$HIP/ifds/storage```. You will have to manually remove it after all your jobs are finished.
+### How to 'install' HtoT
+1. Copy **htot.hdanc** to your Houdini asset library. Ideally this should be a shared directory for every machine.
+For more details, check out : 
+[sidefx.com/docs/houdini/assets/install](http://www.sidefx.com/docs/houdini/assets/install.html)
+2. Since version 2, you do not need to copy the python files anywhere, they are just a copy of the contents found
+in the HDA's **Scripts** tab
+
+### How to use HtoT
+1. Create a `htot` node in a `/out` context
+2. Specify the Output Driver (e.g. `/out/mantra1` or `/out/RIS1`). This is the only mandatory field before you can
+spool a job to Tractor.
+3. Set your job parameters :
+   - Frame range : start and end frame (default : `$FSTART`,  `$FEND`)
+   - Title : title of your tractor job (default : `[$HIPNAME][<renderer>] Render frames <start> - <end>`)
+   - Start Paused : if enabled, the job will be spool and immediately paused (default : disabled)
+   - Projects : name of the projects attached to this job, separated by commas
+   - Priority : priority of the job (default : `1`)
+   - Max Active : cap the number of simultaneously active tasks from that job (default : disabled)
+   - Debug Mode : debug mode will only print your job to the command output instead of spooling it (default : `False`)
+4. Hit 'Spool To Tractor' !
+5. For more information, you can click the Help button on HtoT's parameters interface
+
+## Contribute
+
+You're welcome to contribute to this project by creating a branch and issuing a merge request. I've made it so
+implementing a new render engine should be easy.
+
+## Known limitations
+
+- At the moment archives are generated then frames are rendered from these archives. This is to avoid using
+one Houdini license AND one render engine license per blade for the entire duration of the render. In the future 
+it would be interesting to be able to choose (for cases where licenses are not a problem and/or archives will
+take too much space).
