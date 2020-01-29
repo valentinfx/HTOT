@@ -103,13 +103,13 @@ class HtoTJob(object):
         # Evaluate "Advanced" tab parameters values
         self.houdiniBinPath = self.node.evalParm('houdiniBinPath') or hou.expandString('$HFS/bin')
         self.htotTempDir = self.node.evalParm('tempDir') or hou.expandString('$HIP/htot')
+        self.deleteTempScene = self.node.evalParm('deleteTempScene_tgl')
         self.service = self.node.evalParm('service') or 'PixarRender'
         self.tractorUrl = self.node.evalParm('tractorUrl') or TRACTOR_URL
         self.debugMode = self.node.evalParm('debugMode')
 
         # Deduce other data
         self.archiveOutput = os.path.join(self.htotTempDir, 'htot_{}.$F4.{}'.format(self.randomStr, self.archiveExt))
-        self.toDelete = [self.tempSceneFile]
 
         # cast to needed types
         self.start = int(self.start)
@@ -120,6 +120,8 @@ class HtoTJob(object):
         self.houdiniBinPath = self.houdiniBinPath.replace('\\', '/')
         self.archiveOutput = self.archiveOutput.replace('\\', '/')
         self.tempSceneFile = self.tempSceneFile.replace('\\', '/')
+
+        self.toDelete = [self.tempSceneFile] if self.deleteTempScene else []
 
         self.job = self.createJob()
 

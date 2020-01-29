@@ -50,8 +50,3 @@ implementing a new render engine should be easy.
 one Houdini license AND one render engine license per blade for the entire duration of the render. In the future 
 it would be interesting to be able to choose (for cases where licenses are not a problem and/or archives will
 take too much space).
-
-- The temporary scene file is generated before spooling the job and is deleted during the cleanup task. This means
-users won't be able to retry a job if its status is done. A quick fix would be to add a checkbox that strips the
-temp scene file from the list of files to delete. A better solution would be to generate the temp scene with
-Tractor in a task before the masterTask.
