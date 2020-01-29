@@ -277,7 +277,7 @@ def createPaths(paths):
     :param paths: The paths to create
     :type paths: str | list of str
     """
-    if isinstance(basestring, paths):
+    if isinstance(paths, basestring):
         paths = [paths]
 
     for path in paths:
