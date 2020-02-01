@@ -100,7 +100,12 @@ class HtoTJob(object):
         self.maxActive = self.node.evalParm('maxActive')
         self.comment = self.node.evalParm('comment')
 
-        # Evaluate "Advanced" tab parameters values
+        # Archives
+        self.archivesGeneration = self.node.parm('archivesGeneration').evalAsString()
+        self.archivesGenCmds = [] if self.archivesGeneration == 'local' else None
+        self.binaryArchives = self.node.evalParm('binaryArchives_tgl')
+
+        # Advanced tab
         self.houdiniBinPath = self.node.evalParm('houdiniBinPath') or hou.expandString('$HFS/bin')
         self.htotTempDir = self.node.evalParm('tempDir') or hou.expandString('$HIP/htot')
         self.deleteTempScene = self.node.evalParm('deleteTempScene_tgl')
@@ -151,48 +156,78 @@ class HtoTJob(object):
         # Create one task per frame
         for frame in range(self.start, self.end + 1):
 
-            # Generate archive (rib/ifd/ass)
-            archiveTask = author.Task()
-            archiveTask.title = 'Generate {} for frame {}'.format(self.archiveExt, frame)
-            archiveTask.service = self.service
-            archiveFile = self.archiveOutput.replace('$F4', str(frame).zfill(4))
-            archiveTaskCmd = author.Command()
-            archiveTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe').replace('\\', '/')]
-            archiveTaskCmd.argv.append('-c')
-            hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriverPath)
-            archiveTaskCmd.argv.append(hscriptCmd)
-            archiveTaskCmd.argv.append('-w')  # suppress load warnings
-            archiveTaskCmd.argv.append(self.tempSceneFile)
-            archiveTask.addCommand(archiveTaskCmd)
+            if self.archivesGeneration:
+                # Generate archive
+                archiveTask = author.Task()
+                archiveTask.title = 'Generate {} for frame {}'.format(self.archiveExt, frame)
+                archiveTask.service = self.service
+                archiveFile = self.archiveOutput.replace('$F4', str(frame).zfill(4))
+                archiveTaskCmd = author.Command()
+                archiveTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe').replace('\\', '/')]
+                archiveTaskCmd.argv.append('-c')
+                hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriverPath)
+                archiveTaskCmd.argv.append(hscriptCmd)
+                archiveTaskCmd.argv.append('-w')  # WATCHME : suppress load warnings
+                archiveTaskCmd.argv.append('-i')  # WATCHME : simplified
+                archiveTaskCmd.argv.append('-V')  # WATCHME : verbosity to know what exit codes should retry
+                archiveTaskCmd.argv.append('9')  # TODO : change to 1 before merge
+                archiveTaskCmd.argv.append(self.tempSceneFile)
+                # archiveTaskCmd.retryrc = [1, 2, 3, 4, 5]  # WATCHME : exit codes that will restart the task
+                archiveTask.addCommand(archiveTaskCmd)
 
-            # Add archive file to be deleted by cleanup task
-            self.toDelete.append(archiveFile)
+                # Add archive file to be deleted by cleanup task
+                self.toDelete.append(archiveFile)
 
-            # Render generated archive
-            renderTask = author.Task()
-            renderTask.title = 'Render frame {}'.format(frame)
-            renderTask.service = self.service
-            renderTaskCmd = author.Command()
+                # Render generated archive
+                renderTask = author.Task()
+                renderTask.title = 'Render frame {}'.format(frame)
+                renderTask.service = self.service
+                renderTaskCmd = author.Command()
 
-            # Renderman
-            if self.renderer.startswith('RfH'):
-                renderTaskCmd.argv = ['prman.exe', archiveFile]
+                # Renderman
+                if self.renderer == 'Renderman':
+                    renderTaskCmd.argv = ['prman.exe', archiveFile]
 
-            # Mantra  # TODO
-            elif self.renderer == 'Mantra':
-                renderTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'mantra.exe').replace('\\', '/')]
-                renderTaskCmd.argv.extend(['-f', archiveFile])
+                # Mantra
+                elif self.renderer == 'Mantra':
+                    renderTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'mantra.exe').replace('\\', '/')]
+                    renderTaskCmd.argv.extend(['-f', archiveFile])
+                    renderTaskCmd.retryrc = [1, 2, 3, 4, 5]  # WATCHME : exit codes
 
-            # Arnold  # TODO
-            elif self.renderer == 'Arnold':
-                raise NotImplementedError()
+                # Arnold  # TODO
+                elif self.renderer == 'Arnold':
+                    raise NotImplementedError()
 
-            renderTask.addCommand(renderTaskCmd)
-            renderTask.addChild(archiveTask)
+                renderTask.addCommand(renderTaskCmd)
+
+                if self.archivesGeneration == 'remote':
+                    renderTask.addChild(archiveTask)
+
+                elif self.archivesGeneration == 'local':
+                    self.archivesGenCmds.append(archiveTaskCmd.argv)
+
+            else:
+                # Render without generating an archive
+                renderTask = author.Task()
+                renderTask.title = 'Render frame {}'.format(frame)
+                renderTask.service = self.service
+                renderTaskCmd = author.Command()
+                renderTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe').replace('\\', '/')]
+                renderTaskCmd.argv.append('-c')
+                hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriverPath)
+                renderTaskCmd.argv.append(hscriptCmd)
+                renderTaskCmd.argv.append('-w')  # suppress load warnings
+                renderTaskCmd.argv.append(self.tempSceneFile)
+                renderTaskCmd.argv.append('-w')  # WATCHME : suppress load warnings
+                renderTaskCmd.argv.append('-i')  # WATCHME : simplified
+                renderTaskCmd.argv.append('-V')  # WATCHME : verbosity to know what exit codes should retry
+                renderTaskCmd.argv.append('9')  # TODO : change to 1 before merge
+                renderTaskCmd.retryrc = [1, 2, 3, 4, 5]  # WATCHME : exit codes
+                renderTask.addCommand(renderTaskCmd)
 
             masterTask.addChild(renderTask)
 
-        # Cleanup  # WATCHME
+        # Cleanup
         cleanupCmd = author.Command()
         cleanupCmd.argv = ['TractorBuiltIn', 'File', 'delete']
         cleanupCmd.argv.extend(self.toDelete)
@@ -206,11 +241,28 @@ class HtoTJob(object):
             log.info('DEBUG MODE IS ON')
             log.info('Job to send : \n\n')
             print self.job.asTcl()
+            return
 
-        else:
-            jobId = self.job.spool()
-            if jobId:
-                print 'Job sent to Tractor : {}#jid={}'.format(TRACTOR_URL, jobId)
+        # Generate archives local
+        if self.archivesGeneration == 'local' and self.archivesGenCmds is not None:
+
+            title = 'Generating {} archives'.format(self.archiveExt.title())
+            with hou.InterruptableOperation(title, open_interrupt_dialog=True) as progress:
+                processCount = len(self.archivesGenCmds)
+                count = 1
+
+                for process in self.archivesGenCmds:
+                    si = subprocess.STARTUPINFO()
+                    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                    subprocess.call(process, startupinfo=si)
+                    percent = float(count) / float(processCount)
+                    progress.updateProgress(percent)
+                    count += 1
+
+        jobId = self.job.spool()
+
+        if jobId:
+            hou.ui.displayMessage(text='Job sent to Tractor : \n{}#jid={}'.format(self.tractorUrl, jobId))
 
     def prepareTempScene(self):
         """This will save a temporary scene to be used by Tractor blades
@@ -228,7 +280,7 @@ class HtoTJob(object):
             self.outputDriver.parm('soho_outputmode').set(True)
             self.outputDriver.parm('soho_diskfile').set(self.archiveOutput)
             self.outputDriver.parm('vm_inlinestorage').set(True)
-            self.outputDriver.parm('vm_binarygeometry').set(True)
+            self.outputDriver.parm('vm_binarygeometry').set(self.binaryArchives)
             # ifdsDir = os.path.join(self.htotTempDir, 'ifds', 'storage')
             # hou.parm('{}/vm_tmpsharedstorage'.format(self.outputDriverPath)).set(ifdsDir)
 
@@ -238,9 +290,20 @@ class HtoTJob(object):
             hou.hipFile.save(self.sceneFile)
 
         # Renderman
-        elif self.renderer.startswith('RfH'):
-            self.outputDriver.parm('diskfile').set(True)
-            self.outputDriver.parm('binaryrib').set(True)
+        elif self.renderer == 'Renderman':
+            self.outputDriver.parm('ri_makedir_0').set(True)
+            self.outputDriver.parm('ri_device_0').set('openexr')
+            correctOutputName = self.outputDriver.evalParm('ri_display_0')
+
+            # TODO : theres a fuckup here where the first frame gets overwritten by every task
+            print 'correctOutputName', correctOutputName
+            correctOutputName = correctOutputName.replace('$HIPNAME', self.sceneFileName)
+            print 'correctOutputName', correctOutputName
+            # correctOutputName.replace('$F4')
+            self.outputDriver.parm('ri_display_0').set(correctOutputName)
+
+            self.outputDriver.parm('diskfile').set(bool(self.archivesGeneration))
+            self.outputDriver.parm('binaryrib').set(self.binaryArchives)
             self.outputDriver.parm('soho_diskfile').set(self.archiveOutput)
 
             hou.hipFile.save(self.tempSceneFile)
@@ -252,7 +315,7 @@ class HtoTJob(object):
         elif self.renderer == 'Arnold':
             self.outputDriver.parm('ar_ass_export_enable').set(True)
             self.outputDriver.parm('ar_ass_file').set(self.archiveOutput)
-            self.outputDriver.parm('ar_binary_ass').set(True)
+            self.outputDriver.parm('ar_binary_ass').set(self.binaryArchives)
 
             hou.hipFile.save(self.tempSceneFile)
 
