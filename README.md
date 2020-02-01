@@ -3,9 +3,6 @@
 
 HtoT is intended to work with Tractor 2.3, Houdini 17 and up.
 
-Currently HtoT fully supports sending jobs for Mantra. Renderman should come very soon. Arnold is already partially
-implemented although it won't go further as I have no way to test. 
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![PEP8](https://img.shields.io/badge/code%20style-pep8-orange.svg)](https://www.python.org/dev/peps/pep-0008/)
 
@@ -40,14 +37,21 @@ spool a job to Tractor.
 4. Hit 'Spool To Tractor' !
 5. For more information, you can click the Help button on HtoT's parameters interface
 
-## Contribute
+## Features
 
-You're welcome to contribute to this project by creating a branch and issuing a merge request. I've made it so
-implementing a new render engine should be easy.
+- Spool Mantra and Renderman jobs
+- Generate ifd/rib archives locally or as part of Tractor job
 
 ## Known limitations
 
+- Arnold is already partially implemented although it won't go further as I have no way to test
+- No support for other renderers
 - At the moment archives are generated then frames are rendered from these archives. This is to avoid using
 one Houdini license AND one render engine license per blade for the entire duration of the render. In the future 
 it would be interesting to be able to choose (for cases where licenses are not a problem and/or archives will
 take too much space).
+
+## Contribute
+
+You're welcome to contribute to this project by creating a branch and issuing a merge request. I've made it so
+implementing a new render engine should be easy.
