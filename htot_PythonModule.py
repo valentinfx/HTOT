@@ -3,7 +3,7 @@
 """
 :module: htot.htot_PythonModule
 :platform: Windows
-:version: v2.0.0
+:version: v2.1.0
 :description: Core functions for HDA module that allows spooling jobs to Tractor
     This file is just a copy of what's inside the HDA "Script" tab
 :author: Valentin David <vdavid.pro@gmail.com>
