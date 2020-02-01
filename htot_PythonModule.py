@@ -153,7 +153,15 @@ class HtoTJob(object):
         masterTask.title = 'Render all'
         job.addChild(masterTask)
 
-        # Create one task per frame
+        if self.renderer == 'Renderman':
+            try:
+                import prman
+                rmVersion = prman.Version.replace('RenderManProServer', 'rfm')  # WATCHME
+                job.envkey = [rmVersion]
+
+            except ImportError:
+                pass
+
         for frame in range(self.start, self.end + 1):
 
             if self.archivesGeneration:
