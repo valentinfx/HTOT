@@ -77,7 +77,8 @@ class HtoTJob(object):
         self.tempSceneFileName = 'htot_{}.{}'.format(self.randomStr, ext)
         self.tempSceneFile = os.path.join(self.sceneDir, self.tempSceneFileName)
 
-        # Evaluate first tab parameters values
+        # Job Options tab
+        # Tractor Job Attributes
         self.renderer = self.node.evalParm('renderer')
         self.archiveExt = RENDERER_MAPPING.get(self.outputDriverType).get('archiveExt')
         self.start = self.node.evalParm('rangex') or hou.expandString('$FSTART')
@@ -91,7 +92,7 @@ class HtoTJob(object):
             self.end
         )
         self.jobTitle = self.node.evalParm('title') or defaultTitle
-        self.paused = self.node.evalParm('paused')
+        self.paused = self.node.evalParm('paused_tgl')
         projects = self.node.evalParm('projects') or ''
         self.projects = projects.replace(' ', '').split(',')
         self.priority = self.node.evalParm('priority')
@@ -109,8 +110,8 @@ class HtoTJob(object):
         self.htotTempDir = self.node.evalParm('tempDir') or hou.expandString('$HIP/htot')
         self.deleteTempScene = self.node.evalParm('deleteTempScene_tgl')
         self.service = self.node.evalParm('service') or 'PixarRender'
-        self.tractorUrl = self.node.evalParm('tractorUrl') or TRACTOR_URL
-        self.debugMode = self.node.evalParm('debugMode')
+        self.tractorUrl = self.node.evalParm('tractorUrl')
+        self.debugMode = self.node.evalParm('debugMode_tgl')
 
         # Deduce other data
         self.archiveOutput = os.path.join(self.htotTempDir, 'htot_{}.$F4.{}'.format(self.randomStr, self.archiveExt))
