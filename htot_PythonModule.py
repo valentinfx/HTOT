@@ -237,6 +237,7 @@ class HtoTJob(object):
 
     def sendToFarm(self):
         """Send job to farm"""
+
         if self.debugMode:
             log.info('DEBUG MODE IS ON')
             log.info('Job to send : \n\n')
@@ -252,9 +253,9 @@ class HtoTJob(object):
                 count = 1
 
                 for process in self.archivesGenCmds:
-                    si = subprocess.STARTUPINFO()
-                    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    subprocess.call(process, startupinfo=si)
+                    sui = subprocess.STARTUPINFO()
+                    sui.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                    subprocess.call(process, startupinfo=sui)
                     percent = float(count) / float(processCount)
                     progress.updateProgress(percent)
                     count += 1
