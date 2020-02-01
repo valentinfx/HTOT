@@ -30,13 +30,11 @@ import tractor.api.author as author
 log.basicConfig(level='DEBUG')  # TODO : switch to info before merge
 
 # Feel free to change these
-TRACTOR_URL = 'http://tractor-engine/tv/'  # TODO : use tractor URL API instead
 RENDERER_MAPPING = {
-    'ifd':     {'niceName': 'Mantra', 'archiveExt': 'ifd'},
-    'ris':     {'niceName': 'RfH',    'archiveExt': 'rib'},
-    'ris::22': {'niceName': 'RfH 22', 'archiveExt': 'rib'},
-    'ris::23': {'niceName': 'RfH 23', 'archiveExt': 'rib'},
-    'arnold':  {'niceName': 'Arnold', 'archiveExt': 'ass'},
+    'ifd': {'niceName': 'Mantra', 'archiveExt': 'ifd'},
+    'ris': {'niceName': 'Renderman', 'archiveExt': 'rib'},  # TODO : remove before merge as this is not supported
+    'ris::22': {'niceName': 'Renderman', 'archiveExt': 'rib'},
+    'arnold': {'niceName': 'Arnold', 'archiveExt': 'ass'},
 }
 
 
