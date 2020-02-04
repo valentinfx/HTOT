@@ -173,14 +173,12 @@ class HtoTJob(object):
                 archiveTaskCmd = author.Command()
                 archiveTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe').replace('\\', '/')]
                 archiveTaskCmd.argv.append('-c')
-                hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriverPath)
+                hscriptCmd = 'tcur {}; render -w -i -V 1 -f {} {} {}; quit'.format(frame, frame, frame, self.outputDriverPath)
                 archiveTaskCmd.argv.append(hscriptCmd)
-                archiveTaskCmd.argv.append('-w')  # WATCHME : suppress load warnings
-                archiveTaskCmd.argv.append('-i')  # WATCHME : simplified
-                archiveTaskCmd.argv.append('-V')  # WATCHME : verbosity to know what exit codes should retry
-                archiveTaskCmd.argv.append('9')  # TODO : change to 1 before merge
+                # archiveTaskCmd.argv.append('-w')  # WATCHME : suppress load warnings
+                # archiveTaskCmd.argv.append('-i')  # WATCHME : simplified
                 archiveTaskCmd.argv.append(self.tempSceneFile)
-                # archiveTaskCmd.retryrc = [1, 2, 3, 4, 5]  # WATCHME : exit codes that will restart the task
+                archiveTaskCmd.retryrc = range(0, 11)  # WATCHME : exit codes that will restart the task
                 archiveTask.addCommand(archiveTaskCmd)
 
                 # Add archive file to be deleted by cleanup task
@@ -200,7 +198,7 @@ class HtoTJob(object):
                 elif self.renderer == 'Mantra':
                     renderTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'mantra.exe').replace('\\', '/')]
                     renderTaskCmd.argv.extend(['-f', archiveFile])
-                    renderTaskCmd.retryrc = [1, 2, 3, 4, 5]  # WATCHME : exit codes
+                    renderTaskCmd.retryrc = range(0, 11)  # WATCHME : exit codes
 
                 # Arnold  # TODO
                 elif self.renderer == 'Arnold':
@@ -222,15 +220,12 @@ class HtoTJob(object):
                 renderTaskCmd = author.Command()
                 renderTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe').replace('\\', '/')]
                 renderTaskCmd.argv.append('-c')
-                hscriptCmd = 'render -V -f {} {} {}; quit'.format(frame, frame, self.outputDriverPath)
+                hscriptCmd = 'tcur {}; render -w -i -V -f {} {} {}; quit'.format(frame, frame, frame, self.outputDriverPath)
                 renderTaskCmd.argv.append(hscriptCmd)
-                renderTaskCmd.argv.append('-w')  # suppress load warnings
                 renderTaskCmd.argv.append(self.tempSceneFile)
-                renderTaskCmd.argv.append('-w')  # WATCHME : suppress load warnings
-                renderTaskCmd.argv.append('-i')  # WATCHME : simplified
-                renderTaskCmd.argv.append('-V')  # WATCHME : verbosity to know what exit codes should retry
-                renderTaskCmd.argv.append('9')  # TODO : change to 1 before merge
-                renderTaskCmd.retryrc = [1, 2, 3, 4, 5]  # WATCHME : exit codes
+                # renderTaskCmd.argv.append('-w')  # WATCHME : suppress load warnings
+                # renderTaskCmd.argv.append('-i')  # WATCHME : simplified
+                renderTaskCmd.retryrc = range(0, 11)  # WATCHME : exit codes
                 renderTask.addCommand(renderTaskCmd)
 
             masterTask.addChild(renderTask)
@@ -302,13 +297,8 @@ class HtoTJob(object):
         elif self.renderer == 'Renderman':
             self.outputDriver.parm('ri_makedir_0').set(True)
             self.outputDriver.parm('ri_device_0').set('openexr')
-            correctOutputName = self.outputDriver.evalParm('ri_display_0')
-
-            # TODO : theres a fuckup here where the first frame gets overwritten by every task
-            print 'correctOutputName', correctOutputName
-            correctOutputName = correctOutputName.replace('$HIPNAME', self.sceneFileName)
-            print 'correctOutputName', correctOutputName
-            # correctOutputName.replace('$F4')
+            originalOutputName = self.outputDriver.parm('ri_display_0').unexpandedString()
+            correctOutputName = originalOutputName.replace('$HIPNAME', self.sceneFileName)
             self.outputDriver.parm('ri_display_0').set(correctOutputName)
 
             self.outputDriver.parm('diskfile').set(bool(self.archivesGeneration))
@@ -317,6 +307,7 @@ class HtoTJob(object):
 
             hou.hipFile.save(self.tempSceneFile)
 
+            self.outputDriver.parm('ri_display_0').set(originalOutputName)
             self.outputDriver.parm('diskfile').set(False)
             hou.hipFile.save(self.sceneFile)
 
