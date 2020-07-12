@@ -1,4 +1,4 @@
-# HtoT v2.0.0
+# HtoT v2.1.1
 ## Houdini To Tractor
 
 HtoT is intended to work with Tractor 2.3, Houdini 17 and up.
@@ -10,7 +10,7 @@ HtoT is intended to work with Tractor 2.3, Houdini 17 and up.
 ## Getting Started
 ### How to set up your machines
 These steps should be done by your system administrator (or IT team)
-1. Make sure Houdini 17+ and Tractor 2.3 are both correctly installed on every machine
+1. Make sure houdini-17+ and tractor-2.3 are both correctly installed on every machine
 2. On every machine that needs to send Tractor jobs, add Tractor's Python API path to every 
 machine's **PYTHONPATH** environment variable. The path should look like :
 `C:/Program Files/Pixar/Tractor-2.3/lib/python2.7/Lib/site-packages`
@@ -53,5 +53,5 @@ take too much space).
 
 ## Contribute
 
-You're welcome to contribute to this project by creating a branch and issuing a merge request. I've made it so
-implementing a new render engine should be easy.
+You're welcome to contribute to this project by creating a branch and issuing a merge request like a normal human being.
+I've made it so implementing a new render engine should be easy.
