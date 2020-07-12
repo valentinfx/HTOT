@@ -323,11 +323,14 @@ class HtoTJob(object):
                 pass
 
         if self.archivesGeneration:
-            masterArchivesTask = author.Task()
-            masterArchivesTask.title = 'Generate all archives'
+            if self.archivesGeneration == 'remote':
+                masterArchivesTask = author.Task()
+                masterArchivesTask.title = 'Generate all archives'
+                masterArchivesTask.addChild(self.createArchiveGenTask())
+                masterTask.addChild(masterArchivesTask)
 
-            masterArchivesTask.addChild(self.createArchiveGenTask())
-            masterTask.addChild(masterArchivesTask)
+            elif self.archivesGeneration == 'local':
+                self.archivesGenCmds = self.createArchiveGenTask().archiveTaskCmd.argv
 
             for task in self.createRenderArchiveTasks():
                 masterRenderTask.addChild(task)
@@ -357,19 +360,8 @@ class HtoTJob(object):
 
         # Generate archives local
         if self.archivesGeneration == 'local' and self.archivesGenCmds is not None:
-
-            title = 'Generating {} archives'.format(self.archiveExt.title())
-            with hou.InterruptableOperation(title, open_interrupt_dialog=True) as progress:
-                processCount = len(self.archivesGenCmds)
-                count = 1
-
-                for process in self.archivesGenCmds:
-                    sui = subprocess.STARTUPINFO()
-                    sui.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                    subprocess.call(process, startupinfo=sui)
-                    percent = float(count) / float(processCount)
-                    progress.updateProgress(percent)
-                    count += 1
+            log.info('Generating archives in a subprocess')
+            subprocess.Popen(self.archivesGenCmds)
 
         jobId = self.job.spool()
 
