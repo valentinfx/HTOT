@@ -15,7 +15,6 @@
 import os
 import random
 import string
-import subprocess
 import logging as log
 
 # --------------------------------------------------------------------------------------------------
