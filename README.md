@@ -44,7 +44,8 @@ spool a job to Tractor.
 
 ## Known limitations
 
-- Arnold is already partially implemented although it won't go further as I have no way to test
+- Renderman jobs will only render rib files locally. This should be fixed in a later release
+- Arnold is only partially implemented although it won't go further as I have no way to test
 - No support for other renderers
 - At the moment archives are generated then frames are rendered from these archives. This is to avoid using
 one Houdini license AND one render engine license per blade for the entire duration of the render. In the future 
