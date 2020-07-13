@@ -43,5 +43,9 @@ def onCreated():
         hou.ui.displayMessage(text=errorMsg, severity=hou.severityType.Error)
         return
 
+    # Set Tractor url parm
+    engine = os.environ.get('TRACTOR_ENGINE') or 'tractor-engine'
+    kwargs.get('node').parm('tractorUrl').set('http://{}/tv/'.format(engine))
+
 
 onCreated()
