@@ -27,7 +27,7 @@ import tractor.api.author as author
 # --------------------------------------------------------------------------------------------------
 # Globals
 # --------------------------------------------------------------------------------------------------
-log.basicConfig(level='DEBUG')  # TODO : switch to info before merge
+log.basicConfig(level='INFO')
 
 # Feel free to change these
 RENDERER_MAPPING = {
@@ -150,7 +150,7 @@ class HtoTJob(object):
             # ifdsDir = os.path.join(self.htotTempDir, 'ifds', 'storage')
             # hou.parm('{}/vm_tmpsharedstorage'.format(self.outputDriverPath)).set(ifdsDir)
 
-            hou.hipFile.save(self.snapshotScene)
+            hou.hipFile.save(self.snapshotScene, save_to_recent_files=False)
 
             self.outputDriver.parm('soho_outputmode').set(False)
             hou.hipFile.save(self.sceneFile)
@@ -167,7 +167,7 @@ class HtoTJob(object):
             self.outputDriver.parm('binaryrib').set(self.binaryArchives)
             self.outputDriver.parm('soho_diskfile').set(self.archiveOutput)
 
-            hou.hipFile.save(self.snapshotScene)
+            hou.hipFile.save(self.snapshotScene, save_to_recent_files=False)
 
             self.outputDriver.parm('ri_display_0').set(originalOutputName)
             self.outputDriver.parm('diskfile').set(False)
@@ -179,7 +179,7 @@ class HtoTJob(object):
             self.outputDriver.parm('ar_ass_file').set(self.archiveOutput)
             self.outputDriver.parm('ar_binary_ass').set(self.binaryArchives)
 
-            hou.hipFile.save(self.snapshotScene)
+            hou.hipFile.save(self.snapshotScene, save_to_recent_files=False)
 
             self.outputDriver.parm('ar_ass_export_enable').set(False)
             hou.hipFile.save(self.sceneFile)
@@ -198,7 +198,7 @@ class HtoTJob(object):
         archiveTaskCmd.argv = [os.path.join(self.houdiniBinPath, 'hbatch.exe').replace('\\', '/')]
         archiveTaskCmd.argv.append('-c')
         # hscriptCmd = 'tcur {}; render -w -i -V 1 -f {} {} {}; quit'.format(
-        hscriptCmd = 'render -w -i -V 1 -f {} {} {}; quit'.format(
+        hscriptCmd = 'render -w -i -V 2 -f {} {} {}; quit'.format(
             self.start,
             self.end,
             self.outputDriverPath
@@ -213,10 +213,8 @@ class HtoTJob(object):
             self.archiveOutput.replace('$F4', str(frame).zfill(4))
             for frame in range(self.start, self.end + 1)
         ]
-        log.debug('archiveFiles :')
-        for archive in archiveFiles:
-            log.debug(archive)
-            self.toDelete.append(archive)
+
+        self.toDelete.extend(archiveFiles)
 
         return archiveTask
 
@@ -307,6 +305,7 @@ class HtoTJob(object):
         # Create master task
         masterTask = author.Task()
         masterTask.title = 'Master Task'
+        masterTask.serialsubtasks = True
         job.addChild(masterTask)
 
         # Create a master render task
@@ -330,7 +329,7 @@ class HtoTJob(object):
                 masterTask.addChild(masterArchivesTask)
 
             elif self.archivesGeneration == 'local':
-                self.archivesGenCmds = self.createArchiveGenTask().archiveTaskCmd.argv
+                self.createArchiveGenTask()
 
             for task in self.createRenderArchiveTasks():
                 masterRenderTask.addChild(task)
@@ -359,14 +358,35 @@ class HtoTJob(object):
             return
 
         # Generate archives local
-        if self.archivesGeneration == 'local' and self.archivesGenCmds is not None:
-            log.info('Generating archives in a subprocess')
-            subprocess.Popen(self.archivesGenCmds)
+        if self.archivesGeneration == 'local':
+            self.generateArchivesLocaly()
 
         jobId = self.job.spool()
 
         if jobId:
             hou.ui.displayMessage(text='Job sent to Tractor : \n{}#jid={}'.format(self.tractorUrl, jobId))
+
+    def generateArchivesLocaly(self):
+        """This will execute an inline Hscript to generate the archives"""
+        cmd = 'render -w -i -V 1 -f {} {} {}'.format(self.start, self.end, self.outputDriverPath)
+
+        # Mantra  # WATCHME
+        if self.renderer == 'Mantra':
+            self.outputDriver.parm('soho_outputmode').set(True)
+            hou.hscript(cmd)
+            self.outputDriver.parm('soho_outputmode').set(False)
+
+        # Renderman
+        elif self.renderer == 'Renderman':
+            self.outputDriver.parm('diskfile').set(True)
+            hou.hscript(cmd)
+            self.outputDriver.parm('diskfile').set(False)
+
+        # Arnold
+        elif self.renderer == 'Arnold':
+            self.outputDriver.parm('ar_ass_export_enable').set(True)
+            hou.hscript(cmd)
+            self.outputDriver.parm('ar_ass_export_enable').set(False)
 
 
 def checkUnsavedChanges():
